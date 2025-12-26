@@ -1,4 +1,4 @@
-# Create models to handle responses from Hugging Face LLMs
+# Create database tables using Django models for LLM interaction
 
 from django.db import models
 from django.utils import timezone
@@ -18,5 +18,32 @@ class ModelResponse(models.Model):
 
     # Timestamp 
     created_at = models.DateTimeField(default=timezone.now)
+
+    # Config class for Django to set default ordering
+    class Meta:
+        ordering = ['-create-at']
+
+    # Defines how db object appears in logs
+    def __str__(self):
+        return f"{self.model_name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+class PromptSession(models.Model):
+    # The entered prompt
+    prompt = models.TextField()
+
+    # Session creation time
+    created_at = models.DateTimeField(default=timezone.now)
+
+    # Links the responses to each session
+    responses = models.ManyToManyField(ModelResponse, related_name='sessions')
+
+    # Config class for Django to set default ordering
+    class Meta:
+        ordering = ['-created-at']
+
+    # Defines how db object appears in logs
+    def __str__(self):
+        return f"Session {self.id} - {self.created_at.strftime('%Y-%m-%d %H:%M')}" 
+
 
     
