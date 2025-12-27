@@ -4,7 +4,7 @@ from rest_framework import serializers
 from .models import ModelResponse, PromptSession
 
 # Converts model instances to JSON
-class ModelReponseSerializer(serializers.ModelSerializer):
+class ModelResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = ModelResponse
         fields = ['id', 'prompt', 'model_name', 'model_id', 'response', 'created_at']
