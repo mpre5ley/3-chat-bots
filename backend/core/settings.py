@@ -10,11 +10,11 @@ load_dotenv()
 # Assign environment variables for Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['SECRET_KEY']
-DEBUG = os.environ['DEBUG']
-ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS']
+DEBUG = os.environ['DEBUG'].lower() == 'true'
+ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
 
 # Define Django and 3rd party apps for core functionality
-INSTALLED_APPS = {
+INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -22,12 +22,12 @@ INSTALLED_APPS = {
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'cors_headers',
+    'corsheaders',
     'api',
-}
+]
 
 # Define middleware used to handle requests, security, auth
-MIDDLEWARE = {
+MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -36,7 +36,7 @@ MIDDLEWARE = {
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-}
+]
 
 # Defines URLs
 ROOT_URLCONF = 'core.urls'
@@ -133,4 +133,7 @@ AVAILABLE_MODELS = [
         'description': 'Meta Llama 3.3 70B Instruct model via Cerebras',
         'max_length': 1000
     }
-] 
+]
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = 'static/' 

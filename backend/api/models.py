@@ -21,7 +21,7 @@ class ModelResponse(models.Model):
 
     # Config class for Django to set default ordering
     class Meta:
-        ordering = ['-create-at']
+        ordering = ['-created_at']
 
     # Defines how db object appears in logs
     def __str__(self):
@@ -39,7 +39,7 @@ class PromptSession(models.Model):
 
     # Config class for Django to set default ordering
     class Meta:
-        ordering = ['-created-at']
+        ordering = ['-created_at']
 
     # Defines how db object appears in logs
     def __str__(self):
