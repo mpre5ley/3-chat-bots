@@ -1,0 +1,6 @@
+# Environment Variables
+.env
+
+# Python artifacts
+__pycache__/
+
