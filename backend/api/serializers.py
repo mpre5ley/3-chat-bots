@@ -30,5 +30,4 @@ class ModelInfoSerializer(serializers.Serializer):
     id = serializers.CharField()
     name = serializers.CharField()
     description = serializers.CharField()
-    local = serializers.BooleanField()
     max_length = serializers.IntegerField(required=False)
