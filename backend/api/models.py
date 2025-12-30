@@ -14,7 +14,7 @@ class ModelResponse(models.Model):
     model_id = models.CharField(max_length=100)
 
     # LLM response
-    reponse = models.TextField()
+    response = models.TextField()
 
     # Timestamp 
     created_at = models.DateTimeField(default=timezone.now)

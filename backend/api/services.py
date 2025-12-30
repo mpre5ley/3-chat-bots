@@ -72,11 +72,11 @@ class HuggingFaceAPIService:
         # Define demo response based on prompt
         prompt_lower = prompt.lower()
         if any(word in prompt_lower for word in ['hello', 'hi', 'hey', 'greetings']):
-            reponse_type = 'greeting'
+            response_type = 'greeting'
         elif any(word in prompt_lower for word in ['code', 'program', 'function', 'class', 'def']):
-            reponse_type = 'code'
+            response_type = 'code'
         elif '?' in prompt:
-            reponse_type = 'question'
+            response_type = 'question'
         elif all(word in prompt_lower for word in ['meaning', 'life']):
             response_type = 'meaning'
         else:
@@ -84,11 +84,11 @@ class HuggingFaceAPIService:
 
         # Get model demo response
         model_responses = mock_responses.get(model_id)
-        reponse = model_responses.get(response_type)
+        response = model_responses.get(response_type)
 
-        return "DEMO MODE" + reponse
+        return "DEMO MODE" + response
     
-    # Generate reponse in demo or production mode
+    # Generate response in demo or production mode
     def generate_text(self, model_id, prompt, max_length=100):
 
         # In demo mode
@@ -106,7 +106,7 @@ class HuggingFaceAPIService:
         except Exception as e:
             return f'Hugging Face API Error: {str(e)}'
         
-    # Loop through each model, generate reponse, save to db
+    # Loop through each model, generate response, save to db
     def process_prompt_with_models(self, prompt, model_ids):
         responses = []
         for model_id in model_ids:

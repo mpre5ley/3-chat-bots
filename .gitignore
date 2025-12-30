@@ -4,3 +4,5 @@
 # Python artifacts
 __pycache__/
 
+# db artifacts
+db.sqlite3
