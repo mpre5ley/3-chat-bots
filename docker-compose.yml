@@ -1,0 +1,32 @@
+# Docker Compose for 3 Chat Bots
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=backend-docker-secret-key
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      - DOCKER_ENV=true
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=frontend-docker-secret-key
+      - ALLOWED_HOSTS=localhost,127.0.0.1,frontend
+      - BACKEND_API_URL=http://backend:8000/api
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+    restart: unless-stopped

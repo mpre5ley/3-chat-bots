@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3 Chat Bots</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>3 Chat Bots</h1>
+        <p class="subtitle">Compare responses from multiple LLMs</p>
+        
+        <form id="chat-form">
+            <div class="form-group">
+                <label>Select Models (1-3):</label>
+                <div class="model-selection">
+                    {% for model in models %}
+                    <label class="model-checkbox">
+                        <input type="checkbox" name="model" value="{{ model.id }}" data-name="{{ model.name }}">
+                        <span class="checkmark"></span>
+                        {{ model.name }}
+                    </label>
+                    {% empty %}
+                    <p class="error">No models available. Is the backend running?</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="prompt">Your Prompt:</label>
+                <textarea id="prompt" name="prompt" rows="4" placeholder="Enter your question here..."></textarea>
+            </div>
+            
+            <button type="submit" id="submit-btn">Send</button>
+        </form>
+        
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Waiting for responses...</p>
+        </div>
+        
+        <div id="responses" class="hidden">
+            <h2>Responses</h2>
+            <div id="response-cards"></div>
+        </div>
+    </div>
+    
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

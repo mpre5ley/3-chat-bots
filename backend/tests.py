@@ -1,7 +1,6 @@
-# Manual API test 
+# Manual API test and Interactive Test
  
 import requests
-import sys
 import os
 import subprocess
 
@@ -10,8 +9,9 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def flush_database():
-    print("DATABASE MANAGEMENT")    
-    flush = input("\nFlush the database and start fresh? (y/n): ").strip().lower()
+    print('Backend Interactive Tests')
+    print('DATABASE MANAGEMENT')    
+    flush = input('\nFlush the database and start fresh? (y/n): ').strip().lower()
     if flush != 'y':
         print("Database unchanged.")
         return
