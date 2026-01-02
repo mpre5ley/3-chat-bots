@@ -114,10 +114,9 @@ def interactive_test():
         else:
             print(f"Error: {r.get('error')}")
 
-
+# Check if both servers are running
 def check_servers():
     print('CHECKING SERVERS')
-    
     # Check backend
     try:
         response = requests.get(f"{BACKEND_URL}/models/")
@@ -126,7 +125,6 @@ def check_servers():
         print(f"Backend NOT running at {BACKEND_URL}")
         print("Start with: cd backend && python manage.py runserver")
         return False
-    
     # Check frontend
     try:
         response = requests.get(f"{FRONTEND_URL}/", timeout=2)
@@ -135,7 +133,6 @@ def check_servers():
         print(f"Frontend NOT running at {FRONTEND_URL}")
         print("Start with: cd frontend && python manage.py runserver 3000")
         return False
-    
     return True
 
 
