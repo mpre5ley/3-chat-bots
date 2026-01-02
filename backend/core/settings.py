@@ -132,7 +132,13 @@ AVAILABLE_MODELS = [
         'name': 'Llama 3.3 70B Instruct',
         'description': 'Meta Llama 3.3 70B Instruct model via Cerebras',
         'max_length': 1000
-    }
+    },
+    {
+        'id': 'openai/gpt-oss-120b',
+        'name': 'OpenAI gpt-oss-120b',
+        'description': 'OpenAI GPT Open-Weight Model via Cerebras',
+        'max_length': 1000
+    },
 ]
 
 # Static files (CSS, JavaScript, Images)
