@@ -9,7 +9,6 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def flush_database():
-    print('Backend Interactive Tests')
     print('DATABASE MANAGEMENT')    
     flush = input('\nFlush the database and start fresh? (y/n): ').strip().lower()
     if flush != 'y':
@@ -82,13 +81,16 @@ def test_post_prompt():
 
 # Interactive test for any prompt on a specific model
 def interactive_test():
-    print('INTERACTIVE MODEL TEST')
+    print('INTERACTIVE BACKEND TEST')
     
     # Get available models
     response = requests.get(f"{BASE_URL}/models/")
     models = response.json()
     
-    # Display models for selection
+    # Display models
+    if not models:
+        print("No models available.")
+        return
     print('\nAvailable models:')
     for i, model in enumerate(models, 1):
         print(f"  {i}. {model['name']}")
@@ -114,7 +116,7 @@ def interactive_test():
         return
     
     # Send request to API
-    print(f"\nSending prompt to {selected_model['name']}")    
+    print(f"\nSending prompt through BACKEND to {selected_model['name']}")    
     response = requests.post(
         f"{BASE_URL}/prompt/",
         json={
@@ -134,11 +136,12 @@ def interactive_test():
     
     for r in data.get('responses', []):
         if r.get('success'):
-            print(f"Response:\n{r.get('response')}")
+            print(f"Response: {r.get('response')}")
         else:
             print(f"Error: {r.get('error')}")
 
 def main():
+    print('Backend Interactive Tests')
     flush_database()
     test_get_models()
     test_get_sessions()
