@@ -1,32 +1,30 @@
 # Docker Compose for 3 Chat Bots
-
 services:
-  backend:
-    build: ./backend
+  proxy:
+    build: ./nginx
     ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=True
-      - SECRET_KEY=backend-docker-secret-key
-      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
-      - DOCKER_ENV=true
-    env_file:
-      - ./backend/.env
-    volumes:
-      - ./backend:/app
-    restart: unless-stopped
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
 
   frontend:
     build: ./frontend
-    ports:
-      - "3000:3000"
+    expose:
+      - "8000"
     environment:
-      - DEBUG=True
-      - SECRET_KEY=frontend-docker-secret-key
-      - ALLOWED_HOSTS=localhost,127.0.0.1,frontend
-      - BACKEND_API_URL=http://backend:8000/api
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-    restart: unless-stopped
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+
+  backend:
+    build: ./backend
+    expose:
+      - "8000"
+    environment:
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+      DATABASE_URL: ${DATABASE_URL}
