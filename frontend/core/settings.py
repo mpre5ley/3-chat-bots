@@ -16,7 +16,11 @@ BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://127.0.0.1:8000/api')
 
 # Define Django and 3rd party apps for core functionality
 INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
     'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
     'django.contrib.staticfiles',
     'chat',
 ]
@@ -24,7 +28,12 @@ INSTALLED_APPS = [
 # Define middleware used to handle requests, security, auth
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
 ]
 
 # Defines URLs
