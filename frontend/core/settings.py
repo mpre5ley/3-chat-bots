@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['SECRET_KEY']
 DEBUG = os.environ['DEBUG'].lower() == 'true'
 ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
-BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://127.0.0.1:8001/api')
+BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://backend:8001/api')
 
 # Define Django and 3rd party apps for core functionality
 INSTALLED_APPS = [
@@ -49,6 +49,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
@@ -58,7 +60,12 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # Defines database, db needs to be defined in backend
-DATABASES = {}
+DATABASES = {
+  "default": {
+    "ENGINE": "django.db.backends.sqlite3",
+    "NAME": "/app/data/db.sqlite3",
+  }
+}
 
 # Define time zone settings
 LANGUAGE_CODE = 'en-us'

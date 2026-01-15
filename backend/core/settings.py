@@ -69,9 +69,12 @@ DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3"),
         conn_max_age=600,
-        ssl_require=not DEBUG,
     )
 }
+# Only add sslmode for Postgres
+if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["sslmode"] = os.environ.get("PGSSLMODE", "require")
 
 # Defines Django password validators
 AUTH_PASSWORD_VALIDATORS = [

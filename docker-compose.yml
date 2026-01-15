@@ -4,10 +4,12 @@ services:
     build: ./nginx
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
-
   frontend:
     build: ./frontend
     expose:
@@ -16,6 +18,8 @@ services:
       - .env
     environment:
       DEBUG: "false"
+    volumes:
+      - frontend_data:/app/data
 
   backend:
     build: ./backend
@@ -26,7 +30,8 @@ services:
     environment:
       DEBUG: "false"
     volumes:
-      - backend_db:/app/db.sqlite3
+      - backend_data:/app/data
 
 volumes:
-  backend_db:
+  backend_data:
+  frontend_data:

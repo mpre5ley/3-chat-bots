@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.conf import settings
+from django.http import JsonResponse 
 from .serializers import (
     PromptRequestSerializer, 
     ModelInfoSerializer, 
@@ -92,3 +93,8 @@ def get_session(request, session_id):
             {'error': 'Session not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+
+def health(request):
+    return JsonResponse({"status": "ok"})
+
+

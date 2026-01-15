@@ -10,4 +10,5 @@ urlpatterns = [
     path('responses/', views.get_responses, name='get_responses'),
     path('sessions/', views.get_sessions, name='get_sessions'),
     path('sessions/<int:session_id>/', views.get_session, name='get_session'),
+    path("health/", views.health, name="health"),
 ] 

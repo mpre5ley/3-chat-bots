@@ -12,7 +12,8 @@
         <h1>3 Chat Bots</h1>
         <p class="subtitle"><em>Compare responses from 3 LLMs in real-time</em></p>
         
-        <form id="chat-form">
+        <form id="chat-form" method="post">
+		{% csrf_token %}
             <div class="form-group">
                 <label>Select up to 3 Models:</label>
                 <div class="model-selection">

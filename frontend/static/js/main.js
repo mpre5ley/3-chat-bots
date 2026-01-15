@@ -1,5 +1,10 @@
 // Main JavaScript for chat frontend
 
+function getCSRFToken() {
+  const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+  return el ? el.value : "";
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('chat-form');
     const loading = document.getElementById('loading');
@@ -42,7 +47,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+		    'X-CSRFToken': getCSRFToken(),
                 },
+		credentials: 'same-origin',
                 body: JSON.stringify({
                     prompt: prompt,
                     model_ids: selectedModels
