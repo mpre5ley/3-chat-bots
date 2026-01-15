@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['SECRET_KEY']
 DEBUG = os.environ['DEBUG'].lower() == 'true'
 ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
-BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://127.0.0.1:8000/api')
+BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://127.0.0.1:8001/api')
 
 # Define Django and 3rd party apps for core functionality
 INSTALLED_APPS = [
@@ -69,6 +69,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Define primary key field , reduces warnings
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -78,4 +80,13 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 MIDDLEWARE += ["core.middleware.LoginRequiredMiddleware"]
+
+# When running behind an ALB + nginx reverse proxy, honor X-Forwarded-* headers.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Secure cookies when DEBUG is off (production)
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 

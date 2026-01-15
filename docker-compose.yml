@@ -20,8 +20,13 @@ services:
   backend:
     build: ./backend
     expose:
-      - "8000"
+      - "8001"
     env_file:
-    - .env
+      - .env
     environment:
       DEBUG: "false"
+    volumes:
+      - backend_db:/app/db.sqlite3
+
+volumes:
+  backend_db:

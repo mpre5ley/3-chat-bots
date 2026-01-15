@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -97,10 +98,15 @@ USE_TZ = True
 # Define primary key field , reduces warnings
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework settings to allow admin access through web browser
+# REST Framework settings
+# - Your Django template frontend calls the API server-to-server (no browser CORS).
+# - Keep API open by default; tighten with auth later if desired.
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
@@ -115,6 +121,18 @@ CORS_ALLOWED_ORIGINS = [
 
 # Allows any domain in Docker
 CORS_ALLOW_ALL_ORIGINS = os.getenv('DOCKER_ENV', 'false').lower() == 'true'
+
+# Production: same-origin requests via nginx (/api/*) won't need CORS, but
+# Django admin/session auth behind HTTPS does need trusted origins and proxy headers.
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o
+]
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # Available models configuration (using Hugging Face Inference with Cerebras provider)
 AVAILABLE_MODELS = [
@@ -145,13 +163,7 @@ AVAILABLE_MODELS = [
 ]
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/' 
-
-REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated"
-    ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication"
-    ],
-}
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Compressed manifest storage is a good production default with WhiteNoise.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

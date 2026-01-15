@@ -15,7 +15,11 @@ __pycache__/
 # db artifacts
 *.sqlite3
 *.db
+
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+# Elastic Container Service Files
+*.pem
