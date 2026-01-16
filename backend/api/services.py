@@ -5,7 +5,7 @@ from huggingface_hub import InferenceClient
 from django.conf import settings
 from dotenv import load_dotenv
 from pathlib import Path
-from .models import ModelResponse, PromptSession
+from .models import ModelResponse
 
 # Load environment variables from env
 load_dotenv()
