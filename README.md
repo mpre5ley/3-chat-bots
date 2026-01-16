@@ -196,7 +196,7 @@ newgrp docker
 **From local machine:**
 
 ```bash
-scp -i 3chatbots-prof-key.pem ./3-chat-bots.zip ubuntu@"$PUBLIC_IP":/home/ubuntu/
+scp -i 3chatbots-sys-key.pem ./3-chat-bots.zip ubuntu@"$PUBLIC_IP":/home/ubuntu/
 ```
 
 **On EC2:**
