@@ -15,3 +15,6 @@ __pycache__/
 # db artifacts
 *.sqlite3
 *.db
+
+# Keys
+*.pem
