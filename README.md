@@ -255,8 +255,114 @@ curl -I http://PUBLIC_IP/
 curl -i http://PUBLIC_IP/api/health/
 ```
 
----
-## 12. Shutdown Operations
+----------
+## Tear Down Guide 
+
+## 1. Set environment variables
+
+```bash
+export AWS_REGION=eu-central-1
+```
+
+## 2. Delete the Application Load Balancer listeners and target groups
+
+```bash
+aws elbv2 describe-listeners --region $AWS_REGION \
+  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324 \
+  --query "Listeners[].ListenerArn" --output text
+```
+
+**For each ALB listener listed**
+
+```bash
+aws elbv2 delete-listener --region $AWS_REGION --listener-arn <listener-arn>
+```
+
+**Get the target groups, copy the output to delete after the ALB**
+
+```bash
+aws elbv2 describe-target-groups --region $AWS_REGION \
+  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324 \
+  --query "TargetGroups[].TargetGroupArn" --output text
+```
+
+**Delete the ALB**
+
+```bash
+aws elbv2 delete-load-balancer --region $AWS_REGION \
+  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324
+```
+
+**Delete the target groups (if available)**
+
+```bash
+aws ec2 delete-nat-gateway --region $AWS_REGION \
+  --nat-gateway-id nat-0924d5f1fe403efc0
+```
+
+## 3. Delete Network Address Translation (NAT) Gateway
+
+**Delete NAT gateway**
+
+```bash
+aws ec2 delete-nat-gateway --region $AWS_REGION \
+  --nat-gateway-id nat-0924d5f1fe403efc0
+```
+
+**Confirm NAT run-state is "deleted"**
+
+```bash
+aws ec2 describe-nat-gateways --region $AWS_REGION \
+  --nat-gateway-ids nat-0924d5f1fe403efc0 \
+  --query "NatGateways[0].State" --output text
+```
+
+**Release the NAT EIP**
+
+```bash
+aws ec2 release-address --region $AWS_REGION \
+  --allocation-id eipalloc-0fe6f5f051b110324
+```
+
+## 4. Delete RDS Postgres
+
+```bash
+aws rds delete-db-instance --region $AWS_REGION \
+  --db-instance-identifier chatbots-db \
+  --skip-final-snapshot \
+  --delete-automated-backups
+```
+
+**If deletion is rejected due to deletion protection, disable it**
+
+```bash 
+aws rds modify-db-instance --region $AWS_REGION \
+  --db-instance-identifier chatbots-db \
+  --no-deletion-protection \
+  --apply-immediately
+```
+
+**Delete any manual snapshots**
+
+```bash
+aws rds describe-db-snapshots --region $AWS_REGION \
+  --query "DBSnapshots[?DBInstanceIdentifier=='chatbots-db'].[DBSnapshotIdentifier,SnapshotType,SnapshotCreateTime]" \
+  --output table
+```
+
+**Manually delete each snapshot using the snapshot id**
+
+```bash
+aws rds delete-db-snapshot --region $AWS_REGION --db-snapshot-identifier <snapshot-id>
+```
+
+## 5. Terminate EC2
+
+```bash
+aws ec2 terminate-instances --region $AWS_REGION \
+  --instance-ids i-0b59b6e1620a8a517
+```
+
 
 **Stop containers on EC2:**
 
@@ -269,3 +375,5 @@ docker compose down
 ```bash
 aws ec2 stop-instances --region "$AWS_REGION" --instance-ids "$INSTANCE_ID"
 ```
+
+
