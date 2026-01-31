@@ -363,17 +363,112 @@ aws ec2 terminate-instances --region $AWS_REGION \
   --instance-ids i-0b59b6e1620a8a517
 ```
 
-
-**Stop containers on EC2:**
-
-```bash
-docker compose down
-```
-
-**Stop EC2 instance on local machine:**
+**Confirm termination**
 
 ```bash
-aws ec2 stop-instances --region "$AWS_REGION" --instance-ids "$INSTANCE_ID"
+aws ec2 describe-instances --region $AWS_REGION \
+  --instance-ids i-0b59b6e1620a8a517 \
+  --query "Reservations[0].Instances[0].State.Name" --output text
 ```
 
+**Ensure volume is deleted**
+```bash
+aws ec2 describe-volumes --region $AWS_REGION \
+  --volume-ids vol-065ead1a47b7d533d \
+  --query "Volumes[0].State" --output text
+```
 
+**If volume still exists, then delete it**
+```bash
+aws ec2 delete-volume --region $AWS_REGION --volume-id vol-065ead1a47b7d533d
+```
+
+**Release EC2 EIP**
+```bash
+aws ec2 release-address --region $AWS_REGION \
+  --allocation-id eipalloc-07749e4a713e7da55
+```
+
+**Detect any remaining EIPs**
+```bash
+aws ec2 describe-addresses --region $AWS_REGION \
+  --query "Addresses[].{AllocationId:AllocationId,PublicIp:PublicIp,InstanceId:InstanceId,ServiceManaged:ServiceManaged}" \
+  --output table
+```
+
+**Release each EIP**
+```bash
+aws ec2 release-address --region $AWS_REGION --allocation-id <eipalloc-...>
+```
+
+## 6. Delete EC2 Snapshots
+
+```bash
+aws ec2 describe-snapshots --region $AWS_REGION --owner-ids self \
+  --query "Snapshots[].{SnapshotId:SnapshotId,StartTime:StartTime,SizeGiB:VolumeSize,Description:Description}" \
+  --output table
+```
+
+**Delete snapshots you do not need**
+
+```bash
+aws ec2 delete-snapshot --region $AWS_REGION --snapshot-id snap-06fcd4dec42bceeff
+```
+
+## 7. Delete CloudWatch log groups
+
+```bash
+aws logs describe-log-groups --region $AWS_REGION \
+  --query "logGroups[].logGroupName" --output text
+```
+
+**Delete the ones for the project**
+
+```bash
+aws logs delete-log-group --region $AWS_REGION --log-group-name <name>
+```
+
+## 8. Verify state of services after termination
+
+```bash
+aws ec2 describe-instances --region $AWS_REGION \
+  --query "Reservations[].Instances[?State.Name=='running' || State.Name=='stopped'].InstanceId" --output text
+
+aws elbv2 describe-load-balancers --region $AWS_REGION \
+  --query "LoadBalancers[].LoadBalancerName" --output text
+
+aws ec2 describe-nat-gateways --region $AWS_REGION \
+  --query "NatGateways[?State=='available' || State=='pending'].NatGatewayId" --output text
+
+aws rds describe-db-instances --region $AWS_REGION \
+  --query "DBInstances[].DBInstanceIdentifier" --output text
+
+aws ec2 describe-volumes --region $AWS_REGION \
+  --query "Volumes[?State!='deleted'].VolumeId" --output text
+
+aws ec2 describe-addresses --region $AWS_REGION \
+  --query "Addresses[].AllocationId" --output text
+```
+
+## 9. If enabled, check Cost Explorer for any active services
+```bash
+aws ce get-cost-and-usage \
+  --time-period Start=2026-01-01,End=2026-01-28 \
+  --granularity DAILY \
+  --metrics UnblendedCost \
+  --group-by Type=DIMENSION,Key=SERVICE
+```
+
+## 10. To dispose of any entries into Amazon Secret Manager
+**List remaining secrets**
+```bash
+aws secretsmanager list-secrets --region eu-central-1 \
+  --query "SecretList[].Name" --output table
+```
+
+**Delete a secret**
+```bash
+aws secretsmanager delete-secret --region eu-central-1 \
+  --secret-id <secret-name> \
+  --force-delete-without-recovery
+```
