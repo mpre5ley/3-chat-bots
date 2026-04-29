@@ -82,11 +82,14 @@ class HuggingFaceAPIService:
         else:
             response_type = 'default'
 
-        # Get model demo response
-        model_responses = mock_responses.get(model_id)
-        response = model_responses.get(response_type)
+        # Get model demo response, falling back to a default model
+        # if model_id has no preset entry (e.g. newly added models).
+        model_responses = mock_responses.get(
+            model_id, mock_responses['meta-llama/Llama-3.1-8B-Instruct']
+        )
+        response = model_responses.get(response_type, model_responses['default'])
 
-        return "DEMO MODE" + response
+        return "DEMO MODE " + response
     
     # Generate response in demo or production mode
     def generate_text(self, model_id, prompt, max_length=100):
