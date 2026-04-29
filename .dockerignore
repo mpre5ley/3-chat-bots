@@ -1,0 +1,23 @@
+.git
+.gitignore
+.gitattributes
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pem
+.env
+.env.example
+.DS_Store
+*.sqlite3
+*.db
+README.md
+CLAUDE.md
+Phase 3 Deliverables
+nginx
+docker-compose.yml
+backend
+frontend
+.elasticbeanstalk
+.ebignore
