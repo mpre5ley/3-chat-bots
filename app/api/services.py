@@ -25,7 +25,7 @@ class HuggingFaceAPIService:
         if self.demo_mode:
             print('-----------------------------------------------------')
             print('Running in DEMO MODE, No Hugging Face API token found')
-            print('Define HUGGING_FACE_API_TOKEN in .\backend\.env')
+            print('Define HUGGING_FACE_API_TOKEN in the project root .env file')
             print('-----------------------------------------------------')
             self.client = None
         else:
@@ -51,14 +51,14 @@ class HuggingFaceAPIService:
                 'question': "Good question! I am in demo mode, so I'm showing a preset demo response. With a valid Hugging Face API token, I will provide a detailed response to your prompt.",
                 'code': "Here's a simple example:\n\n```python\ndef hello_world():\n    print('Hello from Llama 3.1 8B!')\n    return 'Demo mode active'\n```\n\nIn production mode with an API token, I can help with complex coding tasks.",
                 'meaning': "42",
-                'default': "Thank you for your prompt! I'm currently running in demo mode with preset responses. To get AI-generated content from Llama 3.1 8B, please define HUGGING_FACE_API_TOKEN to the .\backend\.env file."
+                'default': "Thank you for your prompt! I'm currently running in demo mode with preset responses. To get AI-generated content from Llama 3.1 8B, please define HUGGING_FACE_API_TOKEN in the project root .env file."
             },
             'Qwen/Qwen3-235B-A22B-Instruct-2507': {
                 'greeting': "Hello! I'm Qwen 3, developed by Alibaba Cloud. I specialize in multilingual understanding and can assist with diverse tasks across languages and domains.",
-                'question': "Excellent question! As Qwen 3, I would typically provide comprehensive, well-researched answers. This is a demo response - define an API token in .\backend\.env to unlock my full capabilities.",
+                'question': "Excellent question! As Qwen 3, I would typically provide comprehensive, well-researched answers. This is a demo response - define an API token in the project root .env to unlock my full capabilities.",
                 'code': "Here's a code snippet:\n\n```javascript\nconst qwenDemo = () => {\n  console.log('Qwen 3 demo mode');\n  return 'Add API token for real responses';\n};\n```\n\nWith proper authentication, I can assist with advanced programming tasks.",
                 'meaning': "42",
-                'default': "This is a demonstration response from Qwen 3. I'm running in demo mode because no Hugging Face API token was detected in .env. For actual AI responses, please define HUGGING_FACE_API_TOKEN in .\backend\.env."
+                'default': "This is a demonstration response from Qwen 3. I'm running in demo mode because no Hugging Face API token was detected. For actual AI responses, please define HUGGING_FACE_API_TOKEN in the project root .env file."
             },
             'meta-llama/Llama-3.3-70B-Instruct': {
                 'greeting': "Greetings! I'm Llama 3.3 70B, Meta's large language model. With 70 billion parameters, I excel at complex reasoning, creative writing, and technical problem-solving.",
