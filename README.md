@@ -1,474 +1,135 @@
-# 3Chatbots — An interface to test multiple LLMs
-The web application allows users to input a single prompt and receive a single response 
-from multiple language models via Hugging Face APIs.
+# 3Chatbots — interface to test multiple LLMs
 
-## Features:
-- Run a single prompt through multiple LLMs
-- Select 1-3 models to get simultaneous responses
-- Django frontend with a clean UI
-- Django backend with a RESTful API
-- Docker Compose used to orchestrate multiple containers
+Submit one prompt, compare responses from up to three Hugging Face / Cerebras language models side by side.
 
-## Full Deployment Guide (EC2 + Docker Compose)
-
-This document contains steps to deploy the 3Chatbots application on an AWS EC2 instance, 
-using AWS CLI, SSH, and Docker Compose.
+- **Local**: a single Django project under `app/`. `pip install`, `runserver`, done.
+- **Live**: deployed on **Fly.io** (free tier) at `www.3chatbots.com`, with DNS hosted on **Netbeat**.
+- **Demo mode**: if no `HUGGING_FACE_API_TOKEN` is set, the API service auto-falls-back to canned per-model responses so the UI is fully usable offline.
 
 ---
-## Application Overview
 
-The application runs entirely on a single Ubuntu EC2 instance using Docker Compose.
+## Run locally
 
-**Docker Containers:**
-- proxy — nginx reverse proxy (ports 80 / 443)
-- frontend — Django frontend (auth + UI)
-- backend — Django REST API
+Requires Python 3.12+.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r app/requirements.txt
+cp .env.example .env                  # then edit SECRET_KEY at minimum
+cd app
+python manage.py migrate
+python manage.py createsuperuser      # the site requires login
+python manage.py runserver
+```
+
+Open <http://127.0.0.1:8000>, log in, and submit a prompt.
+
+### Live mode vs. demo mode
+
+The app checks `HUGGING_FACE_API_TOKEN` on each request:
+
+- **Token set** → calls Hugging Face Inference (Cerebras provider) for real responses.
+- **Token unset / blank** → returns canned `"DEMO MODE …"` strings keyed by prompt content. No network call.
+
+To switch, edit `.env` and restart `runserver`. No code change needed.
 
 ---
-## Prerequisites (Local Machine)
 
-- AWS CLI v2 installed and configured
-- SSH client
-- `scp`
-- Terminal access
+## Deploy live (Fly.io + Netbeat DNS)
 
-**Verify AWS access:**
+One-time setup. Estimated cost on free tier: **$0/mo** at this traffic level.
+
+### 1. Install flyctl and sign in
 
 ```bash
-aws sts get-caller-identity
+brew install flyctl       # or curl -L https://fly.io/install.sh | sh
+fly auth signup           # or `fly auth login`
 ```
 
-**Set region (example: Frankfurt):**
+### 2. Launch the app
+
+From the repo root:
 
 ```bash
-export AWS_REGION=eu-central-1
+fly launch --no-deploy --copy-config --name 3chatbots
+fly volumes create data --size 1 --region fra
 ```
 
-**Set your IP**
+`--no-deploy` so we can set secrets first. `--copy-config` keeps the committed `fly.toml`. Pick the region nearest you (`fra` = Frankfurt — change in `fly.toml` if you prefer).
+
+### 3. Set secrets
+
 ```bash
-export MY_IP=$(curl -s https://checkip.amazonaws.com)
+fly secrets set \
+  SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" \
+  ALLOWED_HOSTS="3chatbots.com,www.3chatbots.com,3chatbots.fly.dev" \
+  CSRF_TRUSTED_ORIGINS="https://3chatbots.com,https://www.3chatbots.com,https://3chatbots.fly.dev" \
+  HUGGING_FACE_API_TOKEN="hf_xxx"   # omit for demo mode
 ```
 
----
-## 1. Create SSH Key Pair
+### 4. Deploy
 
 ```bash
-aws ec2 create-key-pair \
-  --region "$AWS_REGION" \
-  --key-name chatbots-sys-key \
-  --query "KeyMaterial" \
-  --output text > chatbots-sys-key.pem
-
-chmod 400 chatbots-sys-key.pem
+fly deploy
+fly ssh console -C "python manage.py createsuperuser"
+fly status
 ```
 
----
-## 2. Create Security Group
+### 5. Point Netbeat DNS at Fly
 
-### 2.1 Get Default VPC
+Get the Fly IPs:
 
 ```bash
-VPC_ID=$(aws ec2 describe-vpcs --region "$AWS_REGION" \
-  --filters "Name=isDefault,Values=true" \
-  --query "Vpcs[0].VpcId" --output text)
+fly ips list
 ```
 
-### 2.2 Create Security Group
+In the Netbeat DNS panel for `3chatbots.com`, add:
+
+| Type  | Host | Value                        |
+|-------|------|------------------------------|
+| A     | `@`  | _Fly IPv4 from above_        |
+| AAAA  | `@`  | _Fly IPv6 from above_        |
+| A     | `www`| _Fly IPv4 from above_        |
+| AAAA  | `www`| _Fly IPv6 from above_        |
+
+### 6. Issue TLS certificates
+
+Once DNS resolves (a few minutes):
 
 ```bash
-SG_ID=$(aws ec2 create-security-group --region "$AWS_REGION" \
-  --group-name chatbots-sg \
-  --description "3chatbots security group" \
-  --vpc-id "$VPC_ID" \
-  --query "GroupId" --output text)
+fly certs add 3chatbots.com
+fly certs add www.3chatbots.com
 ```
 
-### 2.3 Allow HTTP and HTTPS
+Verify:
 
 ```bash
-aws ec2 authorize-security-group-ingress --region "$AWS_REGION" \
-  --group-id "$SG_ID" --protocol tcp --port 80 --cidr 0.0.0.0/0
-
-aws ec2 authorize-security-group-ingress --region "$AWS_REGION" \
-  --group-id "$SG_ID" --protocol tcp --port 443 --cidr 0.0.0.0/0
-```
-
-### 2.4 Allow SSH from Your IP Only
-
-```bash
-aws ec2 authorize-security-group-ingress --region "$AWS_REGION" \
-  --group-id "$SG_ID" --protocol tcp --port 22 --cidr "${MY_IP}/32"
-```
-
----
-## 3. Launch an Ubuntu EC2 Instance
-
-### 3.1 Find Latest Ubuntu 22.04 AMI
-
-```bash
-AMI_ID=$(aws ec2 describe-images --region "$AWS_REGION" \
-  --owners 099720109477 \
-  --filters \
-    "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" \
-    "Name=state,Values=available" \
-  --query "sort_by(Images, &CreationDate)[-1].ImageId" \
-  --output text)
-```
-
-### 3.2 Choose Subnet
-
-```bash
-SUBNET_ID=$(aws ec2 describe-subnets --region "$AWS_REGION" \
-  --filters "Name=vpc-id,Values=$VPC_ID" \
-  --query "Subnets[0].SubnetId" --output text)
-```
-
-### 3.3 Launch Instance
-
-```bash
-INSTANCE_ID=$(aws ec2 run-instances --region "$AWS_REGION" \
-  --image-id "$AMI_ID" \
-  --instance-type t3.small \
-  --key-name 3chatbots-sys-key \
-  --security-group-ids "$SG_ID" \
-  --subnet-id "$SUBNET_ID" \
-  --associate-public-ip-address \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=3chatbots-host}]" \
-  --query "Instances[0].InstanceId" --output text)
-```
-
-**Wait until running:**
-
-```bash
-aws ec2 wait instance-running --region "$AWS_REGION" --instance-ids "$INSTANCE_ID"
-```
-
-**Get public IP:**
-
-```bash
-PUBLIC_IP=$(aws ec2 describe-instances --region "$AWS_REGION" \
-  --instance-ids "$INSTANCE_ID" \
-  --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+curl -I https://www.3chatbots.com/      # expect 302 → /accounts/login/
+curl -i  https://www.3chatbots.com/api/health/   # expect {"status":"ok"}
 ```
 
 ---
-## 4. Attach an Elastic IP
+
+## Architecture (one-paragraph)
+
+`app/` is a single Django 4.2 project. `chat/` renders the UI from `app/templates/chat/index.html`. `api/` is Django REST Framework, mounted at `/api/`. Browser JS in `app/static/js/main.js` POSTs prompts directly to `/api/prompt/` (same origin, session cookie + CSRF token). `api/services.py:HuggingFaceAPIService` is the integration boundary — it auto-detects demo mode from `HUGGING_FACE_API_TOKEN`. SQLite lives at `app/data/db.sqlite3` (mounted as a Fly volume in production). `LoginRequiredMiddleware` gates everything except `/accounts/`, `/static/`, `/admin/`, `/favicon.ico`, `/api/health/`. Whitenoise serves static files.
+
+## Common operations
 
 ```bash
-ALLOC_ID=$(aws ec2 allocate-address --region "$AWS_REGION" \
-  --domain vpc --query "AllocationId" --output text)
-
-aws ec2 associate-address --region "$AWS_REGION" \
-  --instance-id "$INSTANCE_ID" \
-  --allocation-id "$ALLOC_ID"
-```
-
----
-## 5. SSH Into the Server
-
-```bash
-ssh -i 3chatbots-sys-key.pem ubuntu@"$PUBLIC_IP"
-```
-
----
-## 6. Install Docker and Docker Compose (On EC2)
-
-```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg unzip
-
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-sudo usermod -aG docker ubuntu
-newgrp docker
-```
-
----
-## 7. Upload Project Zip
-
-**From local machine:**
-
-```bash
-scp -i 3chatbots-sys-key.pem ./3-chat-bots.zip ubuntu@"$PUBLIC_IP":/home/ubuntu/
-```
-
-**On EC2:**
-
-```bash
-cd ~
-unzip -o 3-chat-bots.zip
-cd 3-chat-bots
-```
-
----
-## 8. Create Root `.env` File
-
-```env
-DEBUG=false
-SECRET_KEY=REPLACE_WITH_RANDOM_SECRET
-ALLOWED_HOSTS=localhost,127.0.0.1,backend,frontend
-BACKEND_API_URL=http://backend:8001/api
-HUGGING_FACE_API_TOKEN=REPLACE_ME
-```
----
-## 9. Build and Start Containers
-
-```bash
-docker compose up -d --build
-```
-
-**Verify containers are running:**
-
-```bash
-docker compose ps
-```
-
----
-## 10. Initialize Database and Admin User
-
-```bash
-docker compose exec frontend python manage.py migrate
-docker compose exec frontend python manage.py createsuperuser
-```
-
----
-## 11. Verify Deployment
-
-**On EC2:**
-
-```bash
-curl -I http://localhost/
-curl -i http://localhost/api/health/
-```
-
-**From local machine:**
-
-```bash
-curl -I http://PUBLIC_IP/
-curl -i http://PUBLIC_IP/api/health/
-```
-
-----------
-## Tear Down Guide 
-
-## 1. Set environment variables
-
-```bash
-export AWS_REGION=eu-central-1
-```
-
-## 2. Delete the Application Load Balancer listeners and target groups
-
-```bash
-aws elbv2 describe-listeners --region $AWS_REGION \
-  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324 \
-  --query "Listeners[].ListenerArn" --output text
-```
-
-**For each ALB listener listed**
-
-```bash
-aws elbv2 delete-listener --region $AWS_REGION --listener-arn <listener-arn>
-```
-
-**Get the target groups, copy the output to delete after the ALB**
-
-```bash
-aws elbv2 describe-target-groups --region $AWS_REGION \
-  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324 \
-  --query "TargetGroups[].TargetGroupArn" --output text
-```
-
-**Delete the ALB**
-
-```bash
-aws elbv2 delete-load-balancer --region $AWS_REGION \
-  --load-balancer-arn arn:aws:elasticloadbalancing:eu-central-1:249760238290:loadbalancer/app/alb-3chatbots/ba45d1ea32c8a324
-```
-
-**Delete the target groups (if available)**
-
-```bash
-aws ec2 delete-nat-gateway --region $AWS_REGION \
-  --nat-gateway-id nat-0924d5f1fe403efc0
-```
-
-## 3. Delete Network Address Translation (NAT) Gateway
-
-**Delete NAT gateway**
-
-```bash
-aws ec2 delete-nat-gateway --region $AWS_REGION \
-  --nat-gateway-id nat-0924d5f1fe403efc0
-```
-
-**Confirm NAT run-state is "deleted"**
-
-```bash
-aws ec2 describe-nat-gateways --region $AWS_REGION \
-  --nat-gateway-ids nat-0924d5f1fe403efc0 \
-  --query "NatGateways[0].State" --output text
-```
-
-**Release the NAT EIP**
-
-```bash
-aws ec2 release-address --region $AWS_REGION \
-  --allocation-id eipalloc-0fe6f5f051b110324
-```
-
-## 4. Delete RDS Postgres
-
-```bash
-aws rds delete-db-instance --region $AWS_REGION \
-  --db-instance-identifier chatbots-db \
-  --skip-final-snapshot \
-  --delete-automated-backups
-```
-
-**If deletion is rejected due to deletion protection, disable it**
-
-```bash 
-aws rds modify-db-instance --region $AWS_REGION \
-  --db-instance-identifier chatbots-db \
-  --no-deletion-protection \
-  --apply-immediately
-```
-
-**Delete any manual snapshots**
-
-```bash
-aws rds describe-db-snapshots --region $AWS_REGION \
-  --query "DBSnapshots[?DBInstanceIdentifier=='chatbots-db'].[DBSnapshotIdentifier,SnapshotType,SnapshotCreateTime]" \
-  --output table
-```
-
-**Manually delete each snapshot using the snapshot id**
-
-```bash
-aws rds delete-db-snapshot --region $AWS_REGION --db-snapshot-identifier <snapshot-id>
-```
-
-## 5. Terminate EC2
-
-```bash
-aws ec2 terminate-instances --region $AWS_REGION \
-  --instance-ids i-0b59b6e1620a8a517
-```
-
-**Confirm termination**
-
-```bash
-aws ec2 describe-instances --region $AWS_REGION \
-  --instance-ids i-0b59b6e1620a8a517 \
-  --query "Reservations[0].Instances[0].State.Name" --output text
-```
-
-**Ensure volume is deleted**
-```bash
-aws ec2 describe-volumes --region $AWS_REGION \
-  --volume-ids vol-065ead1a47b7d533d \
-  --query "Volumes[0].State" --output text
-```
-
-**If volume still exists, then delete it**
-```bash
-aws ec2 delete-volume --region $AWS_REGION --volume-id vol-065ead1a47b7d533d
-```
-
-**Release EC2 EIP**
-```bash
-aws ec2 release-address --region $AWS_REGION \
-  --allocation-id eipalloc-07749e4a713e7da55
-```
-
-**Detect any remaining EIPs**
-```bash
-aws ec2 describe-addresses --region $AWS_REGION \
-  --query "Addresses[].{AllocationId:AllocationId,PublicIp:PublicIp,InstanceId:InstanceId,ServiceManaged:ServiceManaged}" \
-  --output table
-```
-
-**Release each EIP**
-```bash
-aws ec2 release-address --region $AWS_REGION --allocation-id <eipalloc-...>
-```
-
-## 6. Delete EC2 Snapshots
-
-```bash
-aws ec2 describe-snapshots --region $AWS_REGION --owner-ids self \
-  --query "Snapshots[].{SnapshotId:SnapshotId,StartTime:StartTime,SizeGiB:VolumeSize,Description:Description}" \
-  --output table
-```
-
-**Delete snapshots you do not need**
-
-```bash
-aws ec2 delete-snapshot --region $AWS_REGION --snapshot-id snap-06fcd4dec42bceeff
-```
-
-## 7. Delete CloudWatch log groups
-
-```bash
-aws logs describe-log-groups --region $AWS_REGION \
-  --query "logGroups[].logGroupName" --output text
-```
-
-**Delete the ones for the project**
-
-```bash
-aws logs delete-log-group --region $AWS_REGION --log-group-name <name>
-```
-
-## 8. Verify state of services after termination
-
-```bash
-aws ec2 describe-instances --region $AWS_REGION \
-  --query "Reservations[].Instances[?State.Name=='running' || State.Name=='stopped'].InstanceId" --output text
-
-aws elbv2 describe-load-balancers --region $AWS_REGION \
-  --query "LoadBalancers[].LoadBalancerName" --output text
-
-aws ec2 describe-nat-gateways --region $AWS_REGION \
-  --query "NatGateways[?State=='available' || State=='pending'].NatGatewayId" --output text
-
-aws rds describe-db-instances --region $AWS_REGION \
-  --query "DBInstances[].DBInstanceIdentifier" --output text
-
-aws ec2 describe-volumes --region $AWS_REGION \
-  --query "Volumes[?State!='deleted'].VolumeId" --output text
-
-aws ec2 describe-addresses --region $AWS_REGION \
-  --query "Addresses[].AllocationId" --output text
-```
-
-## 9. If enabled, check Cost Explorer for any active services
-```bash
-aws ce get-cost-and-usage \
-  --time-period Start=2026-01-01,End=2026-01-28 \
-  --granularity DAILY \
-  --metrics UnblendedCost \
-  --group-by Type=DIMENSION,Key=SERVICE
-```
-
-## 10. To dispose of any entries into Amazon Secret Manager
-**List remaining secrets**
-```bash
-aws secretsmanager list-secrets --region eu-central-1 \
-  --query "SecretList[].Name" --output table
-```
-
-**Delete a secret**
-```bash
-aws secretsmanager delete-secret --region eu-central-1 \
-  --secret-id <secret-name> \
-  --force-delete-without-recovery
+# Local
+python app/manage.py migrate
+python app/manage.py createsuperuser
+python app/manage.py runserver
+
+# Fly.io
+fly deploy
+fly logs
+fly ssh console
+fly ssh console -C "python manage.py migrate"
+fly ssh console -C "python manage.py createsuperuser"
+fly status
+fly ips list
+fly certs list
 ```
