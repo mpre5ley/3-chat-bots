@@ -6,9 +6,11 @@ class LoginRequiredMiddleware:
         self.get_response = get_response
         self.allow = [
             settings.LOGIN_URL,
+            "/accounts/",
             "/static/",
             "/admin/",
             "/favicon.ico",
+            "/api/health/",
         ]
 
     def __call__(self, request):

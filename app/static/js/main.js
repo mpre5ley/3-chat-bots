@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.disabled = true;
         
         try {
-            const response = await fetch('/chat/', {
+            const response = await fetch('/api/prompt/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

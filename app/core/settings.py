@@ -1,21 +1,15 @@
-# Settings for Django configuration
-
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-
-# Load environment variables from env
 load_dotenv()
 
-# Assign environment variables for Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['SECRET_KEY']
-DEBUG = os.environ['DEBUG'].lower() == 'true'
-ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
+DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Define Django and 3rd party apps for core functionality
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -24,13 +18,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',
+    'chat',
     'api',
 ]
 
-# Define middleware used to handle requests, security, auth
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -39,16 +31,15 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.LoginRequiredMiddleware',
 ]
 
-# Defines URLs
 ROOT_URLCONF = 'core.urls'
 
-# Defines HTML rendering for Django, enables UI
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -61,52 +52,35 @@ TEMPLATES = [
     },
 ]
 
-# Defines web interface for Django app
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# Defines database used, SQLite used for development
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3"),
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'data' / 'db.sqlite3'}"),
         conn_max_age=600,
     )
 }
-# Only add sslmode for Postgres
-if DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql":
-    DATABASES["default"].setdefault("OPTIONS", {})
-    DATABASES["default"]["OPTIONS"]["sslmode"] = os.environ.get("PGSSLMODE", "require")
+if DATABASES['default'].get('ENGINE') == 'django.db.backends.postgresql':
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS']['sslmode'] = os.environ.get('PGSSLMODE', 'require')
 
-# Defines Django password validators
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Define time zone settings
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Define primary key field , reduces warnings
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework settings
-# - Your Django template frontend calls the API server-to-server (no browser CORS).
-# - Keep API open by default; tighten with auth later if desired.
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
@@ -116,19 +90,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Defines react dev servers
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-# Allows any domain in Docker
-CORS_ALLOW_ALL_ORIGINS = os.getenv('DOCKER_ENV', 'false').lower() == 'true'
-
-# Production: same-origin requests via nginx (/api/*) won't need CORS, but
-# Django admin/session auth behind HTTPS does need trusted origins and proxy headers.
 CSRF_TRUSTED_ORIGINS = [
-    o for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o
+    o for o in os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://3chatbots.com,https://www.3chatbots.com').split(',') if o
 ]
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -137,36 +100,38 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# Available models configuration (using Hugging Face Inference with Cerebras provider)
 AVAILABLE_MODELS = [
     {
         'id': 'meta-llama/Llama-3.1-8B-Instruct',
         'name': 'Llama 3.1 8B Instruct',
         'description': 'Meta Llama 3.1 8B Instruct model via Cerebras',
-        'max_length': 1000
+        'max_length': 1000,
     },
     {
         'id': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
         'name': 'Qwen 3 235B Instruct',
         'description': 'Alibaba Qwen 3 235B Instruct model via Cerebras',
-        'max_length': 1000
+        'max_length': 1000,
     },
     {
         'id': 'meta-llama/Llama-3.3-70B-Instruct',
         'name': 'Llama 3.3 70B Instruct',
         'description': 'Meta Llama 3.3 70B Instruct model via Cerebras',
-        'max_length': 1000
+        'max_length': 1000,
     },
     {
         'id': 'openai/gpt-oss-120b',
         'name': 'OpenAI gpt-oss-120b',
         'description': 'OpenAI GPT Open-Weight Model via Cerebras',
-        'max_length': 1000
+        'max_length': 1000,
     },
 ]
 
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-# Compressed manifest storage is a good production default with WhiteNoise.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
