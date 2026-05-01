@@ -29,8 +29,9 @@ class HuggingFaceAPIService:
             print('-----------------------------------------------------')
             self.client = None
         else:
-            self.client = InferenceClient(provider='cerebras', 
-                                          api_key=self.api_token)
+            self.client = InferenceClient(provider='cerebras',
+                                          api_key=self.api_token,
+                                          timeout=30)
     # Get model info dictionary
     def get_model_info(self, model_id):
         for model in settings.AVAILABLE_MODELS:
