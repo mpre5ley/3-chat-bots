@@ -1,6 +1,7 @@
 # Interface with Hugging Face API and handles demo mode 
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from huggingface_hub import InferenceClient
 from django.conf import settings
 from dotenv import load_dotenv
@@ -110,38 +111,43 @@ class HuggingFaceAPIService:
         except Exception as e:
             return f'Hugging Face API Error: {str(e)}'
         
-    # Loop through each model, generate response, save to db
+    # Generate one model's response (used by the thread pool below).
+    # DB write happens here so the caller doesn't have to coordinate it.
+    def _generate_one(self, model_id, prompt):
+        model_info = self.get_model_info(model_id)
+        if not model_info:
+            return None
+        try:
+            response_text = self.generate_text(
+                model_id, prompt, max_length=model_info.get('max_length')
+            )
+            ModelResponse.objects.create(
+                prompt=prompt,
+                model_name=model_info['name'],
+                model_id=model_id,
+                response=response_text,
+            )
+            return {
+                'model_id': model_id,
+                'model_name': model_info['name'],
+                'response': response_text,
+                'success': True,
+                'demo_mode': self.demo_mode,
+            }
+        except Exception as e:
+            return {
+                'model_id': model_id,
+                'model_name': model_info['name'],
+                'response': f'Error: {str(e)}',
+                'success': False,
+                'demo_mode': self.demo_mode,
+            }
+
+    # Run all model calls in parallel so total latency = slowest, not sum.
     def process_prompt_with_models(self, prompt, model_ids):
-        responses = []
-        for model_id in model_ids:
-            try:
-                model_info = self.get_model_info(model_id)
-                # if model id not found, skip model
-                if not model_info:
-                    continue
-                max_length = model_info.get('max_length')
-                response_text = self.generate_text(model_id,
-                                                   prompt,
-                                                   max_length=max_length)
-                # Save to db
-                ModelResponse.objects.create(prompt=prompt,
-                                             model_name=model_info['name'],
-                                             model_id=model_id,
-                                             response=response_text)
-                responses.append({
-                    'model_id' : model_id,
-                    'model_name' : model_info['name'],
-                    'response' : response_text,
-                    'success' : True,
-                    'demo_mode' : self.demo_mode
-                })
-            except Exception as e:
-                model_name = model_info['name'] if model_info else 'unknown'
-                responses.append({
-                    'model_id' : model_id,
-                    'model_name' : model_name,
-                    'response' : f'Error: {str(e)}',
-                    'success' : False,
-                    'demo_mode' : self.demo_mode
-                })
+        if not model_ids:
+            return []
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as pool:
+            results = list(pool.map(lambda mid: self._generate_one(mid, prompt), model_ids))
+        return [r for r in results if r is not None]
         return responses
