@@ -28,6 +28,7 @@ primary_region = 'fra'
     grace_period = '30s'
     method = 'GET'
     path = '/api/health/'
+    headers = { Host = "3chatbots.fly.dev" }
 
 [[vm]]
   size = 'shared-cpu-1x'
