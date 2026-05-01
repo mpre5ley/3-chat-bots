@@ -72,8 +72,16 @@ fly secrets set \
 
 ```bash
 fly deploy
-fly ssh console -C "python manage.py createsuperuser"
 fly status
+```
+
+Then create the first superuser. `createsuperuser` needs an interactive shell, so open one first:
+
+```bash
+fly ssh console
+# at the # prompt inside the container:
+python manage.py createsuperuser
+exit
 ```
 
 ### 5. Point Netbeat DNS at Fly
@@ -126,9 +134,8 @@ python app/manage.py runserver
 # Fly.io
 fly deploy
 fly logs
-fly ssh console
-fly ssh console -C "python manage.py migrate"
-fly ssh console -C "python manage.py createsuperuser"
+fly ssh console                                      # interactive shell (use for createsuperuser)
+fly ssh console -C "python manage.py migrate"        # one-shot non-interactive
 fly status
 fly ips list
 fly certs list
