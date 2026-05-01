@@ -30,3 +30,6 @@ __pycache__/
 # Editor swap files
 *.swp
 .*.swp
+
+# Phase 3 deliverables (contains tokens/secrets, kept locally only)
+Phase 3 Deliverables/
