@@ -30,9 +30,10 @@ class HuggingFaceAPIService:
             print('-----------------------------------------------------')
             self.client = None
         else:
-            self.client = InferenceClient(provider='cerebras',
-                                          api_key=self.api_token,
-                                          timeout=30)
+            # No provider= → HF auto-routes each model to a supported provider.
+            # Wider model availability than pinning Cerebras, at the cost of
+            # variable per-provider latency (hence the bumped timeout).
+            self.client = InferenceClient(api_key=self.api_token, timeout=60)
     # Get model info dictionary
     def get_model_info(self, model_id):
         for model in settings.AVAILABLE_MODELS:
