@@ -104,25 +104,31 @@ AVAILABLE_MODELS = [
     {
         'id': 'meta-llama/Llama-3.1-8B-Instruct',
         'name': 'Llama 3.1 8B Instruct',
-        'description': 'Meta Llama 3.1 8B Instruct model via Cerebras',
-        'max_length': 1000,
-    },
-    {
-        'id': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
-        'name': 'Qwen 3 235B Instruct',
-        'description': 'Alibaba Qwen 3 235B Instruct model via Cerebras',
+        'description': 'Meta Llama 3.1 8B Instruct',
         'max_length': 1000,
     },
     {
         'id': 'meta-llama/Llama-3.3-70B-Instruct',
         'name': 'Llama 3.3 70B Instruct',
-        'description': 'Meta Llama 3.3 70B Instruct model via Cerebras',
+        'description': 'Meta Llama 3.3 70B Instruct',
         'max_length': 1000,
     },
     {
-        'id': 'openai/gpt-oss-120b',
-        'name': 'OpenAI gpt-oss-120b',
-        'description': 'OpenAI GPT Open-Weight Model via Cerebras',
+        'id': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+        'name': 'Qwen 3 235B Instruct',
+        'description': 'Alibaba Qwen 3 235B Instruct',
+        'max_length': 1000,
+    },
+    {
+        'id': 'Qwen/Qwen2.5-72B-Instruct',
+        'name': 'Qwen 2.5 72B Instruct',
+        'description': 'Alibaba Qwen 2.5 72B Instruct',
+        'max_length': 1000,
+    },
+    {
+        'id': 'deepseek-ai/DeepSeek-V3-0324',
+        'name': 'DeepSeek V3',
+        'description': 'DeepSeek V3 (March 2024) general-purpose model',
         'max_length': 1000,
     },
 ]

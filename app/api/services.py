@@ -1,6 +1,7 @@
 # Interface with Hugging Face API and handles demo mode 
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from huggingface_hub import InferenceClient
 from django.conf import settings
 from dotenv import load_dotenv
@@ -29,8 +30,10 @@ class HuggingFaceAPIService:
             print('-----------------------------------------------------')
             self.client = None
         else:
-            self.client = InferenceClient(provider='cerebras', 
-                                          api_key=self.api_token)
+            # No provider= → HF auto-routes each model to a supported provider.
+            # Wider model availability than pinning Cerebras, at the cost of
+            # variable per-provider latency (hence the explicit timeout).
+            self.client = InferenceClient(api_key=self.api_token, timeout=45)
     # Get model info dictionary
     def get_model_info(self, model_id):
         for model in settings.AVAILABLE_MODELS:
@@ -98,49 +101,61 @@ class HuggingFaceAPIService:
         if self.demo_mode:
             return self.generate_mock_response(model_id, prompt)
         
-        # If token is available, use Hugging Face Inference API
+        # If token is available, use Hugging Face Inference API.
+        # Per-call timeout is set on the client (45s). On timeout or any
+        # other failure, we return a polite reply-style string so the UI
+        # renders it like a normal model response, not an error card.
         try:
             completion = self.client.chat.completions.create(
                 model=model_id,
                 messages=[{'role':'user', 'content':prompt}],
                 max_tokens=max_length,
             )
-            return completion.choices[0].message.content
+            content = completion.choices[0].message.content
+            return content if content else "I didn't have a response this time. Please try again or try a different model."
         except Exception as e:
-            return f'Hugging Face API Error: {str(e)}'
+            msg = str(e).lower()
+            if 'timeout' in msg or 'timed out' in msg:
+                return "Sorry, I took too long to respond this time (over 45 seconds). Please try again, try a different model, or shorten your prompt."
+            return "Sorry, I'm not available right now. Please try again in a moment or pick a different model."
         
-    # Loop through each model, generate response, save to db
+    # Generate one model's response (used by the thread pool below).
+    # DB write happens here so the caller doesn't have to coordinate it.
+    def _generate_one(self, model_id, prompt):
+        model_info = self.get_model_info(model_id)
+        if not model_info:
+            return None
+        try:
+            response_text = self.generate_text(
+                model_id, prompt, max_length=model_info.get('max_length')
+            )
+            ModelResponse.objects.create(
+                prompt=prompt,
+                model_name=model_info['name'],
+                model_id=model_id,
+                response=response_text,
+            )
+            return {
+                'model_id': model_id,
+                'model_name': model_info['name'],
+                'response': response_text,
+                'success': True,
+                'demo_mode': self.demo_mode,
+            }
+        except Exception as e:
+            return {
+                'model_id': model_id,
+                'model_name': model_info['name'],
+                'response': f'Error: {str(e)}',
+                'success': False,
+                'demo_mode': self.demo_mode,
+            }
+
+    # Run all model calls in parallel so total latency = slowest, not sum.
     def process_prompt_with_models(self, prompt, model_ids):
-        responses = []
-        for model_id in model_ids:
-            try:
-                model_info = self.get_model_info(model_id)
-                # if model id not found, skip model
-                if not model_info:
-                    continue
-                max_length = model_info.get('max_length')
-                response_text = self.generate_text(model_id,
-                                                   prompt,
-                                                   max_length=max_length)
-                # Save to db
-                ModelResponse.objects.create(prompt=prompt,
-                                             model_name=model_info['name'],
-                                             model_id=model_id,
-                                             response=response_text)
-                responses.append({
-                    'model_id' : model_id,
-                    'model_name' : model_info['name'],
-                    'response' : response_text,
-                    'success' : True,
-                    'demo_mode' : self.demo_mode
-                })
-            except Exception as e:
-                model_name = model_info['name'] if model_info else 'unknown'
-                responses.append({
-                    'model_id' : model_id,
-                    'model_name' : model_name,
-                    'response' : f'Error: {str(e)}',
-                    'success' : False,
-                    'demo_mode' : self.demo_mode
-                })
+        if not model_ids:
+            return []
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as pool:
+            results = list(pool.map(lambda mid: self._generate_one(mid, prompt), model_ids))
+        return [r for r in results if r is not None]
         return responses
