@@ -32,8 +32,8 @@ class HuggingFaceAPIService:
         else:
             # No provider= → HF auto-routes each model to a supported provider.
             # Wider model availability than pinning Cerebras, at the cost of
-            # variable per-provider latency (hence the bumped timeout).
-            self.client = InferenceClient(api_key=self.api_token, timeout=60)
+            # variable per-provider latency (hence the explicit timeout).
+            self.client = InferenceClient(api_key=self.api_token, timeout=45)
     # Get model info dictionary
     def get_model_info(self, model_id):
         for model in settings.AVAILABLE_MODELS:
@@ -101,16 +101,23 @@ class HuggingFaceAPIService:
         if self.demo_mode:
             return self.generate_mock_response(model_id, prompt)
         
-        # If token is available, use Hugging Face Inference API
+        # If token is available, use Hugging Face Inference API.
+        # Per-call timeout is set on the client (45s). On timeout or any
+        # other failure, we return a polite reply-style string so the UI
+        # renders it like a normal model response, not an error card.
         try:
             completion = self.client.chat.completions.create(
                 model=model_id,
                 messages=[{'role':'user', 'content':prompt}],
                 max_tokens=max_length,
             )
-            return completion.choices[0].message.content
+            content = completion.choices[0].message.content
+            return content if content else "I didn't have a response this time. Please try again or try a different model."
         except Exception as e:
-            return f'Hugging Face API Error: {str(e)}'
+            msg = str(e).lower()
+            if 'timeout' in msg or 'timed out' in msg:
+                return "Sorry, I took too long to respond this time (over 45 seconds). Please try again, try a different model, or shorten your prompt."
+            return "Sorry, I'm not available right now. Please try again in a moment or pick a different model."
         
     # Generate one model's response (used by the thread pool below).
     # DB write happens here so the caller doesn't have to coordinate it.
