@@ -14,6 +14,15 @@ load_dotenv()
 # Load backend path
 backend_dir = Path(__file__).resolve().parent.parent
 
+# Typed errors so the view layer can label them distinctly in the UI.
+class ModelTimeout(Exception):
+    pass
+
+
+class ModelUnavailable(Exception):
+    pass
+
+
 # Hugging Face Inferece API Class
 class HuggingFaceAPIService:
     
@@ -102,54 +111,57 @@ class HuggingFaceAPIService:
             return self.generate_mock_response(model_id, prompt)
         
         # If token is available, use Hugging Face Inference API.
-        # Per-call timeout is set on the client (45s). On timeout or any
-        # other failure, we return a polite reply-style string so the UI
-        # renders it like a normal model response, not an error card.
+        # Per-call timeout is set on the client (45s). Failures raise typed
+        # exceptions so _generate_one can mark the response card as an error
+        # and tag it with an error_mode for the UI.
         try:
             completion = self.client.chat.completions.create(
                 model=model_id,
-                messages=[{'role':'user', 'content':prompt}],
+                messages=[{'role': 'user', 'content': prompt}],
                 max_tokens=max_length,
             )
-            content = completion.choices[0].message.content
-            return content if content else "I didn't have a response this time. Please try again or try a different model."
         except Exception as e:
             msg = str(e).lower()
             if 'timeout' in msg or 'timed out' in msg:
-                return "Sorry, I took too long to respond this time (over 45 seconds). Please try again, try a different model, or shorten your prompt."
-            return "Sorry, I'm not available right now. Please try again in a moment or pick a different model."
+                raise ModelTimeout(str(e)) from e
+            raise ModelUnavailable(str(e)) from e
+        content = completion.choices[0].message.content
+        if not content:
+            raise ModelUnavailable('Provider returned an empty response.')
+        return content
         
     # Generate one model's response (used by the thread pool below).
-    # DB write happens here so the caller doesn't have to coordinate it.
+    # DB write only happens on success — errors are reported back to the
+    # caller via success=False + error_mode.
     def _generate_one(self, model_id, prompt):
         model_info = self.get_model_info(model_id)
         if not model_info:
             return None
+        base = {
+            'model_id': model_id,
+            'model_name': model_info['name'],
+            'demo_mode': self.demo_mode,
+        }
         try:
             response_text = self.generate_text(
                 model_id, prompt, max_length=model_info.get('max_length')
             )
-            ModelResponse.objects.create(
-                prompt=prompt,
-                model_name=model_info['name'],
-                model_id=model_id,
-                response=response_text,
-            )
-            return {
-                'model_id': model_id,
-                'model_name': model_info['name'],
-                'response': response_text,
-                'success': True,
-                'demo_mode': self.demo_mode,
-            }
+        except ModelTimeout as e:
+            return {**base, 'success': False, 'error_mode': 'timeout',
+                    'response': 'Request exceeded the 45-second timeout. Try again, pick a different model, or shorten the prompt.'}
+        except ModelUnavailable as e:
+            return {**base, 'success': False, 'error_mode': 'unavailable',
+                    'response': f'Provider unavailable: {str(e)[:200]}'}
         except Exception as e:
-            return {
-                'model_id': model_id,
-                'model_name': model_info['name'],
-                'response': f'Error: {str(e)}',
-                'success': False,
-                'demo_mode': self.demo_mode,
-            }
+            return {**base, 'success': False, 'error_mode': 'error',
+                    'response': f'{type(e).__name__}: {str(e)[:200]}'}
+        ModelResponse.objects.create(
+            prompt=prompt,
+            model_name=model_info['name'],
+            model_id=model_id,
+            response=response_text,
+        )
+        return {**base, 'success': True, 'response': response_text}
 
     # Run all model calls in parallel so total latency = slowest, not sum.
     def process_prompt_with_models(self, prompt, model_ids):
@@ -158,4 +170,3 @@ class HuggingFaceAPIService:
         with ThreadPoolExecutor(max_workers=len(model_ids)) as pool:
             results = list(pool.map(lambda mid: self._generate_one(mid, prompt), model_ids))
         return [r for r in results if r is not None]
-        return responses

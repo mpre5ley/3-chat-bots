@@ -78,13 +78,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.responses.forEach(resp => {
                     const card = document.createElement('div');
                     card.className = resp.success ? 'response-card' : 'response-card error';
-                    
-                    const content = resp.success 
-                        ? resp.response 
-                        : (resp.error || 'Unknown error');
-                    
+
+                    const name = escapeHtml(resp.model_name || resp.model_id);
+                    const header = resp.success
+                        ? name
+                        : `${name} — ${escapeHtml((resp.error_mode || 'error').toUpperCase())}`;
+                    const content = resp.response || 'Unknown error';
+
                     card.innerHTML = `
-                        <h3>${escapeHtml(resp.model_name || resp.model_id)}</h3>
+                        <h3>${header}</h3>
                         <div class="content">${escapeHtml(content)}</div>
                     `;
                     responseCards.appendChild(card);
